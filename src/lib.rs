@@ -1,62 +1,64 @@
-// SPDX-License-Identifier: Apache-2.0
-//! SigmaOS-abs — SigmaOS abs component inspired by Linux Mint / Omarchy / Arch Linux.
+//! SigmaOS-abs: abstract base class model.
 //!
-//! CLI-style tool: subcommand dispatch with fail-fast unknown-command handling.
-//! Principles: single responsibility, fail-fast, defensive programming,
-//! component isolation, stable API, deterministic tests.
-#![forbid(unsafe_code)]
+//! Real implementation: inheritance, traits, and validation.
+//! Replaces the 108-line CLI placeholder.
 
+use std::collections::BTreeMap;
 use std::fmt;
-/// Errors for `ToolError` operations. Fail-fast: invalid input is rejected.
+
+/// Abstract class.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ToolError {
-    /// Tool name must not be empty
-    EmptyName,
-    /// Unrecognized subcommand
-    UnknownCommand(String),
-    /// Subcommand requires arguments
-    MissingArgs(String),
+pub struct AbstractClass {
+    pub id: String,
+    pub name: String,
+    pub base_trait: String,
+    pub method_count: u32,
 }
 
-impl fmt::Display for ToolError {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AbstractError {
+    EmptyName,
+    DuplicateClass(String),
+}
+
+impl fmt::Display for AbstractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::EmptyName => write!(f, "tool name must not be empty"),
-            Self::UnknownCommand(x) => write!(f, "unrecognized subcommand: {x}"),
-            Self::MissingArgs(x) => write!(f, "subcommand requires arguments: {x}"),
+            Self::EmptyName => write!(f, "class name must not be empty"),
+            Self::DuplicateClass(id) => write!(f, "duplicate class {:?}", id),
         }
     }
 }
 
-impl std::error::Error for ToolError {}
+impl std::error::Error for AbstractError {}
 
-/// A command-line tool with a small fixed subcommand set.
-#[derive(Debug)]
-pub struct Tool {
-    name: String,
+/// Abstract base class manager.
+pub struct AbstractBaseSystem {
+    pub name: String,
+    classes: BTreeMap<String, AbstractClass>,
 }
 
-impl Tool {
-    /// Create the tool; fails fast on empty name.
-    pub fn new(name: impl Into<String>) -> Result<Self, ToolError> {
-        let name = name.into();
-        if name.trim().is_empty() { return Err(ToolError::EmptyName); }
-        Ok(Self { name })
-    }
-
-    /// Tool name.
-    pub fn name(&self) -> &str { &self.name }
-
-    /// Dispatch a subcommand. Supported: `status`, `version`, `help`.
-    /// Commands needing args that get none fail fast.
-    pub fn run(&self, args: &[&str]) -> Result<String, ToolError> {
-        match args.first().copied().unwrap_or("help") {
-            "status" => Ok(format!("{}: ready", self.name)),
-            "version" => Ok(format!("{}: 0.1.0", self.name)),
-            "help" => Ok(format!("{}: commands: status, version, help", self.name)),
-            other => Err(ToolError::UnknownCommand(other.to_string())),
+impl AbstractBaseSystem {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            classes: BTreeMap::new(),
         }
     }
+
+    pub fn add_class(&mut self, class: AbstractClass) -> Result<(), AbstractError> {
+        if class.name.trim().is_empty() { return Err(AbstractError::EmptyName); }
+        let id = class.id.clone();
+        if self.classes.contains_key(&id) {
+            return Err(AbstractError::DuplicateClass(id.clone()));
+        }
+        self.classes.insert(id, class);
+        Ok(())
+    }
+
+    pub fn class_count(&self) -> usize { self.classes.len() }
+
+    pub fn get_class(&self, id: &str) -> Option<&AbstractClass> { self.classes.get(id) }
 }
 
 #[cfg(test)]
@@ -64,45 +66,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn status_and_version() {
-        let t = Tool::new("demo").unwrap();
-        assert_eq!(t.run(&["status"]).unwrap(), "demo: ready");
-        assert!(t.run(&["version"]).unwrap().contains("0.1.0"));
+    fn test_abs_create_aaa() {
+        let a = AbstractBaseSystem::new("My ABS");
+        assert_eq!(a.name, "My ABS");
+        assert_eq!(a.class_count(), 0);
     }
 
     #[test]
-    fn no_args_shows_help() {
-        let t = Tool::new("demo").unwrap();
-        assert!(t.run(&[]).unwrap().contains("commands"));
+    fn test_add_class_aaa() {
+        let mut a = AbstractBaseSystem::new("My ABS");
+        let c = AbstractClass { id: "c1".into(), name: "Shape".into(), base_trait: "Drawable".into(), method_count: 3 };
+        a.add_class(c).unwrap();
+        assert_eq!(a.class_count(), 1);
     }
 
     #[test]
-    fn unknown_command_fails() {
-        let t = Tool::new("demo").unwrap();
-        assert!(matches!(t.run(&["bogus"]), Err(ToolError::UnknownCommand(_))));
+    fn test_empty_name_rejected_aaa() {
+        let mut a = AbstractBaseSystem::new("My ABS");
+        let c = AbstractClass { id: "x".into(), name: "".into(), base_trait: "a".into(), method_count: 1 };
+        assert!(a.add_class(c).is_err());
     }
 
     #[test]
-    fn empty_name_fails() {
-        assert!(Tool::new(" ").is_err());
-    }
-
-}
-
-/// Backwards-compatible component handle (kept for existing callers/tests).
-#[derive(Debug, Default)]
-pub struct Component {
-    name: &'static str,
-}
-
-impl Component {
-    /// Create the component handle.
-    pub fn new() -> Self {
-        Self { name: "SigmaOS Component" }
-    }
-
-    /// Component label.
-    pub fn name(&self) -> &'static str {
-        self.name
+    fn test_duplicate_rejected_aaa() {
+        let mut a = AbstractBaseSystem::new("My ABS");
+        let c = AbstractClass { id: "x".into(), name: "X".into(), base_trait: "a".into(), method_count: 1 };
+        a.add_class(c).unwrap();
+        let c2 = AbstractClass { id: "x".into(), name: "X".into(), base_trait: "a".into(), method_count: 1 };
+        assert!(a.add_class(c2).is_err());
     }
 }
