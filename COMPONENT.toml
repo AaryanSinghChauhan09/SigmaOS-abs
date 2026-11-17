@@ -3,12 +3,12 @@ name = "SigmaOS-abs"
 tier = 2
 stability = "scaffold"
 language = "rust"
-description = "abs component"
+description = "Arch Linux-inspired component for SigmaOS."
 upstream = []
 
 [contract]
 provides = ["component"]
-depends_on = []
+depends_on = ["SigmaOS-system"]
 
 [maturity]
 status = "Scaffold"
