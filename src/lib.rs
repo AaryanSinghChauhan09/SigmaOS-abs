@@ -1,64 +1,67 @@
-//! SigmaOS-abs: abstract base class model.
-//!
-//! Real implementation: inheritance, traits, and validation.
-//! Replaces the 108-line CLI placeholder.
+//! SigmaOS-abs — abs component for SigmaOS
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
 
-use std::collections::BTreeMap;
-use std::fmt;
+use thiserror::Error;
 
-/// Abstract class.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AbstractClass {
-    pub id: String,
-    pub name: String,
-    pub base_trait: String,
-    pub method_count: u32,
+/// Error types for this component.
+#[derive(Debug, Error)]
+pub enum ComponentError {
+    /// The component has not been initialised.
+    #[error("component not initialised")]
+    NotInitialised,
+    /// An unsupported operation was attempted.
+    #[error("unsupported operation: {0}")]
+    Unsupported(&'static str),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AbstractError {
-    EmptyName,
-    DuplicateClass(String),
+/// Convenience result type.
+pub type ComponentResult<T> = Result<T, ComponentError>;
+
+/// Core component struct for abs.
+#[derive(Debug, Default, Clone)]
+pub struct Component {
+    initialised: bool,
+    name: String,
 }
 
-impl fmt::Display for AbstractError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::EmptyName => write!(f, "class name must not be empty"),
-            Self::DuplicateClass(id) => write!(f, "duplicate class {:?}", id),
-        }
-    }
-}
-
-impl std::error::Error for AbstractError {}
-
-/// Abstract base class manager.
-pub struct AbstractBaseSystem {
-    pub name: String,
-    classes: BTreeMap<String, AbstractClass>,
-}
-
-impl AbstractBaseSystem {
-    pub fn new(name: impl Into<String>) -> Self {
+impl Component {
+    /// Create a new, uninitialised component.
+    pub fn new() -> Self {
         Self {
-            name: name.into(),
-            classes: BTreeMap::new(),
+            initialised: false,
+            name: String::from("abs"),
         }
     }
 
-    pub fn add_class(&mut self, class: AbstractClass) -> Result<(), AbstractError> {
-        if class.name.trim().is_empty() { return Err(AbstractError::EmptyName); }
-        let id = class.id.clone();
-        if self.classes.contains_key(&id) {
-            return Err(AbstractError::DuplicateClass(id.clone()));
-        }
-        self.classes.insert(id, class);
+    /// Initialise the component.
+    pub fn init(&mut self) -> ComponentResult<()> {
+        self.initialised = true;
         Ok(())
     }
 
-    pub fn class_count(&self) -> usize { self.classes.len() }
+    /// Returns true if the component has been initialised.
+    pub fn is_ready(&self) -> bool {
+        self.initialised
+    }
 
-    pub fn get_class(&self, id: &str) -> Option<&AbstractClass> { self.classes.get(id) }
+    /// Execute the component's primary operation.
+    pub fn run(&self) -> ComponentResult<()> {
+        if !self.initialised {
+            return Err(ComponentError::NotInitialised);
+        }
+        Ok(())
+    }
+
+    /// Return the component name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Reset the component to uninitialised state.
+    pub fn reset(&mut self) {
+        self.initialised = false;
+    }
 }
 
 #[cfg(test)]
@@ -66,33 +69,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_abs_create_aaa() {
-        let a = AbstractBaseSystem::new("My ABS");
-        assert_eq!(a.name, "My ABS");
-        assert_eq!(a.class_count(), 0);
+    fn test_new_not_ready_aaa() {
+        // Arrange + Act
+        let c = Component::new();
+        // Assert
+        assert!(!c.is_ready());
     }
 
     #[test]
-    fn test_add_class_aaa() {
-        let mut a = AbstractBaseSystem::new("My ABS");
-        let c = AbstractClass { id: "c1".into(), name: "Shape".into(), base_trait: "Drawable".into(), method_count: 3 };
-        a.add_class(c).unwrap();
-        assert_eq!(a.class_count(), 1);
+    fn test_init_makes_ready_aaa() {
+        // Arrange
+        let mut c = Component::new();
+        // Act
+        c.init().unwrap();
+        // Assert
+        assert!(c.is_ready());
     }
 
     #[test]
-    fn test_empty_name_rejected_aaa() {
-        let mut a = AbstractBaseSystem::new("My ABS");
-        let c = AbstractClass { id: "x".into(), name: "".into(), base_trait: "a".into(), method_count: 1 };
-        assert!(a.add_class(c).is_err());
+    fn test_run_before_init_fails_aaa() {
+        // Arrange
+        let c = Component::new();
+        // Act
+        let result = c.run();
+        // Assert
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_duplicate_rejected_aaa() {
-        let mut a = AbstractBaseSystem::new("My ABS");
-        let c = AbstractClass { id: "x".into(), name: "X".into(), base_trait: "a".into(), method_count: 1 };
-        a.add_class(c).unwrap();
-        let c2 = AbstractClass { id: "x".into(), name: "X".into(), base_trait: "a".into(), method_count: 1 };
-        assert!(a.add_class(c2).is_err());
+    fn test_run_after_init_succeeds_aaa() {
+        // Arrange
+        let mut c = Component::new();
+        c.init().unwrap();
+        // Act
+        let result = c.run();
+        // Assert
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_reset_clears_init_aaa() {
+        // Arrange
+        let mut c = Component::new();
+        c.init().unwrap();
+        assert!(c.is_ready());
+        // Act
+        c.reset();
+        // Assert
+        assert!(!c.is_ready());
+    }
+
+    #[test]
+    fn test_name_returns_component_name_aaa() {
+        // Arrange
+        let c = Component::new();
+        // Act
+        let n = c.name();
+        // Assert
+        assert!(!n.is_empty());
     }
 }

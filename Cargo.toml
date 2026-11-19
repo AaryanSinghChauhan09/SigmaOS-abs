@@ -1,11 +1,15 @@
 [package]
-name = "sigmaos_abs"
+name = "SigmaOS-abs"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-
-[dependencies]
+description = "SigmaOS sigmaos_abs component"
 
 [lib]
 name = "sigmaos_abs"
 path = "src/lib.rs"
+
+[dependencies]
+thiserror = "1"
+
+[dev-dependencies]
